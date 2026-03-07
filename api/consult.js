@@ -60,7 +60,8 @@ module.exports = async function handler(req, res) {
           contents: [{ parts: [{ text: userMessage }] }],
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 500
+            maxOutputTokens: 1024,
+            thinkingConfig: { thinkingBudget: 0 }
           }
         })
       }
