@@ -79,7 +79,7 @@ module.exports = async function handler(req, res) {
     ? `\n【重要】相談者は${age}歳です。年齢に合わせて、わかりやすく寄り添った言葉で回答してください。小学生以下なら易しい表現に、高齢者なら丁寧で落ち着いた表現に、若年層なら親しみやすい表現に調整してください。`
     : '';
 
-  try {
+  const makeRequest = async () => {
     const userMessage = `以下の悩みについて、${expertName}としてアドバイスをお願いします。${ageInstruction}\n\n${worry}`;
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
@@ -97,13 +97,31 @@ module.exports = async function handler(req, res) {
         })
       }
     );
+    return response.json();
+  };
 
-    const data = await response.json();
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  try {
+    let data = await makeRequest();
 
     if (data.error) {
-      return res.status(500).json({
-        error: data.error.message || 'APIエラーが発生しました'
-      });
+      const msg = data.error.message || '';
+      const isQuotaError = /quota|rate.?limit|resource.?exhausted/i.test(msg) || data.error.code === 429;
+      const retryMatch = msg.match(/retry in (\d+(?:\.\d+)?)\s*s/i);
+
+      if (isQuotaError && retryMatch) {
+        const waitSec = Math.min(parseFloat(retryMatch[1]) + 1, 60);
+        await sleep(waitSec * 1000);
+        data = await makeRequest();
+      }
+
+      if (data.error) {
+        const quotaMsg = /quota|rate.?limit/i.test(data.error.message || '')
+          ? '利用回数の上限に達しました。しばらく（約1分）待ってから、もう一度お試しください。'
+          : (data.error.message || 'APIエラーが発生しました');
+        return res.status(500).json({ error: quotaMsg });
+      }
     }
 
     const reply = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
