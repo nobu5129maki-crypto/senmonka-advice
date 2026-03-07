@@ -118,7 +118,7 @@ module.exports = async function handler(req, res) {
 
       if (data.error) {
         const quotaMsg = /quota|rate.?limit/i.test(data.error.message || '')
-          ? '利用回数の上限に達しました。しばらく（約1分）待ってから、もう一度お試しください。'
+          ? '利用回数の上限に達しました。しばらく（約3分）待ってから、もう一度お試しください。'
           : (data.error.message || 'APIエラーが発生しました');
         return res.status(500).json({ error: quotaMsg });
       }
