@@ -40,7 +40,7 @@ module.exports = async function handler(req, res) {
     });
   }
 
-  const { worry, expert } = req.body || {};
+  const { worry, expert, age } = req.body || {};
   if (!worry || !expert || !SYSTEM_PROMPTS[expert]) {
     return res.status(400).json({ error: '悩みと専門家の指定が必要です。' });
   }
@@ -48,8 +48,12 @@ module.exports = async function handler(req, res) {
   const systemPrompt = SYSTEM_PROMPTS[expert];
   const expertName = EXPERT_NAMES[expert];
 
+  const ageInstruction = (age && age >= 1 && age <= 120)
+    ? `\n【重要】相談者は${age}歳です。年齢に合わせて、わかりやすく寄り添った言葉で回答してください。小学生以下なら易しい表現に、高齢者なら丁寧で落ち着いた表現に、若年層なら親しみやすい表現に調整してください。`
+    : '';
+
   try {
-    const userMessage = `以下の悩みについて、${expertName}としてアドバイスをお願いします。\n\n${worry}`;
+    const userMessage = `以下の悩みについて、${expertName}としてアドバイスをお願いします。${ageInstruction}\n\n${worry}`;
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {
