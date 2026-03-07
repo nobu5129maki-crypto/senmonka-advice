@@ -146,6 +146,12 @@
 
     @media (min-width: 480px) {
       .buttons {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    @media (min-width: 640px) {
+      .buttons {
         grid-template-columns: repeat(4, 1fr);
       }
     }
@@ -187,6 +193,42 @@
 
     .expert-btn.career {
       background: linear-gradient(135deg, #9b7b8e 0%, #7a6172 100%);
+    }
+
+    .expert-btn.same-age {
+      background: linear-gradient(135deg, #8b9dc3 0%, #6d7fa3 100%);
+    }
+
+    .expert-btn.younger {
+      background: linear-gradient(135deg, #b8a9c9 0%, #9a8bb9 100%);
+    }
+
+    .expert-btn.teens {
+      background: linear-gradient(135deg, #a8d5ba 0%, #88b59a 100%);
+    }
+
+    .expert-btn.twenties {
+      background: linear-gradient(135deg, #f5c77a 0%, #d5a75a 100%);
+    }
+
+    .expert-btn.thirties {
+      background: linear-gradient(135deg, #e8a87c 0%, #c8885c 100%);
+    }
+
+    .expert-btn.forties {
+      background: linear-gradient(135deg, #85c1e9 0%, #65a1c9 100%);
+    }
+
+    .expert-btn.fifties {
+      background: linear-gradient(135deg, #c38d9e 0%, #a36d7e 100%);
+    }
+
+    .expert-btn.dad {
+      background: linear-gradient(135deg, #7eb8b8 0%, #5e9898 100%);
+    }
+
+    .expert-btn.mom {
+      background: linear-gradient(135deg, #d4a5a5 0%, #b48585 100%);
     }
 
     .response-section {
@@ -301,20 +343,21 @@
     </section>
 
     <section class="expert-section">
-      <p class="expert-label">専門家を選んでください</p>
+      <p class="expert-label">相談したい人を選んでください</p>
       <div class="buttons">
-        <button class="expert-btn psych" data-expert="psych">
-          臨床心理士
-        </button>
-        <button class="expert-btn law" data-expert="law">
-          弁護士
-        </button>
-        <button class="expert-btn fp" data-expert="fp">
-          ファイナンシャルプランナー
-        </button>
-        <button class="expert-btn career" data-expert="career">
-          キャリアカウンセラー
-        </button>
+        <button class="expert-btn psych" data-expert="psych">臨床心理士</button>
+        <button class="expert-btn law" data-expert="law">弁護士</button>
+        <button class="expert-btn fp" data-expert="fp">ファイナンシャルプランナー</button>
+        <button class="expert-btn career" data-expert="career">キャリアカウンセラー</button>
+        <button class="expert-btn same-age" data-expert="same_age">同い年</button>
+        <button class="expert-btn younger" data-expert="younger">年下</button>
+        <button class="expert-btn teens" data-expert="teens">10代</button>
+        <button class="expert-btn twenties" data-expert="twenties">20代</button>
+        <button class="expert-btn thirties" data-expert="thirties">30代</button>
+        <button class="expert-btn forties" data-expert="forties">40代</button>
+        <button class="expert-btn fifties" data-expert="fifties">50代</button>
+        <button class="expert-btn dad" data-expert="dad">世のお父さん</button>
+        <button class="expert-btn mom" data-expert="mom">世のお母さん</button>
       </div>
     </section>
 
@@ -332,7 +375,16 @@
       psych: { name: '臨床心理士', icon: '🧠', color: '#7c9a9e' },
       law: { name: '弁護士', icon: '⚖️', color: '#8b7355' },
       fp: { name: 'ファイナンシャルプランナー', icon: '💰', color: '#6b8e6f' },
-      career: { name: 'キャリアカウンセラー', icon: '📋', color: '#9b7b8e' }
+      career: { name: 'キャリアカウンセラー', icon: '📋', color: '#9b7b8e' },
+      same_age: { name: '同い年', icon: '🤝', color: '#8b9dc3' },
+      younger: { name: '年下', icon: '✨', color: '#b8a9c9' },
+      teens: { name: '10代', icon: '🌱', color: '#a8d5ba' },
+      twenties: { name: '20代', icon: '🌟', color: '#f5c77a' },
+      thirties: { name: '30代', icon: '💼', color: '#e8a87c' },
+      forties: { name: '40代', icon: '📊', color: '#85c1e9' },
+      fifties: { name: '50代', icon: '🍂', color: '#c38d9e' },
+      dad: { name: '世のお父さん', icon: '👨', color: '#7eb8b8' },
+      mom: { name: '世のお母さん', icon: '👩', color: '#d4a5a5' }
     };
 
     const worryInput = document.getElementById('worry-input');
@@ -382,7 +434,7 @@
           responseIcon.textContent = expert.icon;
           responseIcon.style.background = expert.color;
           responseTitle.textContent = expert.name + 'からのアドバイス';
-          responseContent.textContent = '悩みを入力してから、専門家を選んでください。';
+          responseContent.textContent = '悩みを入力してから、相談したい人を選んでください。';
           responseContent.classList.add('response-placeholder');
           responseSection.classList.add('visible');
           responseSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
