@@ -135,6 +135,25 @@
       color: #aaa;
     }
 
+    .recommended-section {
+      background: rgba(124, 154, 158, 0.08);
+      padding: 1.25rem;
+      border-radius: var(--radius);
+      border: 1px solid rgba(124, 154, 158, 0.2);
+      margin-bottom: 1.5rem;
+    }
+
+    .topic-hint {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.75rem;
+      line-height: 1.5;
+    }
+
+    .topic-hint.has-match {
+      color: var(--text-primary);
+    }
+
     .expert-section {
       margin-bottom: 1.5rem;
     }
@@ -350,6 +369,12 @@
       ></textarea>
     </section>
 
+    <section class="recommended-section" aria-labelledby="recommended-heading">
+      <p class="expert-label" id="recommended-heading">悩みの内容から専門家を選ぶ</p>
+      <p class="topic-hint" id="topic-hint">悩みを入力すると、内容に近い専門家のボタンが表示されます。</p>
+      <div class="buttons" id="recommended-buttons" role="group" aria-label="おすすめの専門家"></div>
+    </section>
+
     <section class="expert-section">
       <p class="expert-label">相談したい人を選んでください</p>
       <div class="buttons">
@@ -379,6 +404,35 @@
   </div>
 
   <script>
+    const TOPIC_SPECIALISTS = ['psych', 'law', 'fp', 'career'];
+
+    const topicKeywords = {
+      psych: [
+        '気分', 'メンタル', 'うつ', '不安', 'パニック', 'イライラ', '落ち込', '空虚', 'HSP',
+        '睡眠', '不眠', '人間関係', '孤立', '孤独', '失恋', '夫婦', '家族', '親子', '育児',
+        '気持ち', '心', 'カウンセリング', 'トラウマ', 'ストレス', '自信', '自己肯定', '生きづら',
+        '引きこもり', '対人', '比較', '嫉妬', '過食', '拒食', '自傷', '死にたい', '苦痛'
+      ],
+      law: [
+        '契約', '書面', '労働', '解雇', '未払い', '賃金', '残業代', '退職', 'パワハラ', 'セクハラ',
+        '不法行為', '損害賠償', '慰謝料', '相続', '遺言', '遺産', '離婚', '養育費', '面会',
+        '詐欺', '借金', '債務', '自己破産', '訴え', '裁判', '調停', '弁護', '示談', '内容証明',
+        '更新', '解約', '賃貸', '敷金', '近隣', '騒音', '境界', '著作', '個人情報', '法的'
+      ],
+      fp: [
+        '家計', '貯金', '貯蓄', '投資', 'NISA', 'iDeCo', 'ideco', '老後', '年金', 'FIRE',
+        '住宅ローン', '借入', '金利', '保険', '生命保険', '医療保険', '学資', '学費',
+        '税金', '確定申告', 'ふるさと納税', '節税', '副業', '所得税', '贈与', '相続税',
+        'お金', '資産', '家計簿', '浪費', '赤字', '生活費', '給付', '奨学金返済'
+      ],
+      career: [
+        '転職', '就活', '就職', 'キャリア', '辞めたい', '転職活動', '面接', '履歴書', '業界',
+        '昇進', '評価', '給与', 'ボーナス', '残業', 'ワークライフ', 'WLB', 'リモート', '副業許可',
+        'スキル', '資格', '勉強', '第二新卒', '新卒', 'ミドル', '転落', '職種', '社内政治',
+        '上司', '部下', '同僚', '部署異動', '配置', '育休復帰', '復職', '独立', '開業'
+      ]
+    };
+
     const experts = {
       psych: { name: '臨床心理士', icon: '🧠', color: '#7c9a9e' },
       law: { name: '弁護士', icon: '⚖️', color: '#8b7355' },
@@ -401,7 +455,72 @@
     const responseIcon = document.getElementById('response-icon');
     const responseTitle = document.getElementById('response-title');
     const responseContent = document.getElementById('response-content');
-    const expertBtns = document.querySelectorAll('.expert-btn');
+    const recommendedButtons = document.getElementById('recommended-buttons');
+    const topicHint = document.getElementById('topic-hint');
+
+    function normalizeWorry(text) {
+      return text.trim().toLowerCase();
+    }
+
+    function scoreTopicMatch(textNorm) {
+      const scores = {};
+      for (const key of TOPIC_SPECIALISTS) {
+        scores[key] = 0;
+        const list = topicKeywords[key];
+        for (const kw of list) {
+          if (textNorm.includes(kw.toLowerCase())) scores[key] += 1;
+        }
+      }
+      return scores;
+    }
+
+    function renderRecommendedButtons() {
+      const raw = worryInput.value;
+      const textNorm = normalizeWorry(raw);
+      recommendedButtons.innerHTML = '';
+
+      if (!textNorm) {
+        topicHint.textContent = '悩みを入力すると、内容に近い専門家のボタンが表示されます。';
+        topicHint.classList.remove('has-match');
+        return;
+      }
+
+      const scores = scoreTopicMatch(textNorm);
+      const ranked = TOPIC_SPECIALISTS.slice()
+        .map(key => ({ key, score: scores[key] }))
+        .sort((a, b) => b.score - a.score);
+
+      const hasStrong = ranked.some(r => r.score > 0);
+      const toShow = hasStrong
+        ? ranked.filter(r => r.score > 0).sort((a, b) => b.score - a.score)
+        : ranked;
+
+      topicHint.textContent = hasStrong
+        ? '次のようなキーワードから、話を聞いてほしい専門家の候補です。ボタンを押すとその視点のアドバイスを取得できます。'
+        : '入力文から強いヒントが得られなかったため、4分野すべてを並べました。どれか1つ選んで試せます。';
+      topicHint.classList.toggle('has-match', hasStrong);
+
+      const frag = document.createDocumentFragment();
+      const specialistClass = { psych: 'psych', law: 'law', fp: 'fp', career: 'career' };
+      for (const { key } of toShow) {
+        const meta = experts[key];
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'expert-btn ' + specialistClass[key];
+        btn.dataset.expert = key;
+        btn.textContent = meta.name + 'の視点で聞く';
+        frag.appendChild(btn);
+      }
+      recommendedButtons.appendChild(frag);
+    }
+
+    let recommendTimer;
+    worryInput.addEventListener('input', () => {
+      clearTimeout(recommendTimer);
+      recommendTimer = setTimeout(renderRecommendedButtons, 200);
+    });
+    worryInput.addEventListener('blur', renderRecommendedButtons);
+    renderRecommendedButtons();
 
     async function fetchAIResponse(worry, expertKey, age) {
       const body = { worry, expert: expertKey };
@@ -427,48 +546,51 @@
     }
 
     function setLoading(loading) {
-      expertBtns.forEach(btn => {
+      document.querySelectorAll('.container .expert-btn').forEach(btn => {
         btn.disabled = loading;
       });
     }
 
-    expertBtns.forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const expertKey = btn.dataset.expert;
-        const expert = experts[expertKey];
-        const worry = worryInput.value.trim();
+    document.querySelector('.container').addEventListener('click', async (e) => {
+      const btn = e.target.closest('.expert-btn');
+      if (!btn) return;
 
-        if (!worry) {
-          responseIcon.textContent = expert.icon;
-          responseIcon.style.background = expert.color;
-          responseTitle.textContent = expert.name + 'からのアドバイス';
-          responseContent.textContent = '悩みを入力してから、相談したい人を選んでください。';
-          responseContent.classList.add('response-placeholder');
-          responseSection.classList.add('visible');
-          responseSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-          return;
-        }
+      const expertKey = btn.dataset.expert;
+      const expert = experts[expertKey];
+      if (!expert) return;
 
+      const worry = worryInput.value.trim();
+
+      if (!worry) {
         responseIcon.textContent = expert.icon;
         responseIcon.style.background = expert.color;
         responseTitle.textContent = expert.name + 'からのアドバイス';
-        responseContent.innerHTML = '<span class="loading loading-dots">考え中</span>';
-        responseContent.classList.remove('response-placeholder');
+        responseContent.textContent = '悩みを入力してから、相談したい人を選んでください。';
+        responseContent.classList.add('response-placeholder');
         responseSection.classList.add('visible');
         responseSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        return;
+      }
 
-        setLoading(true);
+      responseIcon.textContent = expert.icon;
+      responseIcon.style.background = expert.color;
+      responseTitle.textContent = expert.name + 'からのアドバイス';
+      responseContent.innerHTML = '<span class="loading loading-dots">考え中</span>';
+      responseContent.classList.remove('response-placeholder');
+      responseSection.classList.add('visible');
+      responseSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-        try {
-          const age = ageInput.value.trim() ? parseInt(ageInput.value, 10) : null;
-          const reply = await fetchAIResponse(worry, expertKey, age);
-          responseContent.textContent = reply;
-        } catch (err) {
-          responseContent.innerHTML = `<span class="error-msg">${err.message}</span>`;
-        } finally {
-          setLoading(false);
-        }
-      });
+      setLoading(true);
+
+      try {
+        const age = ageInput.value.trim() ? parseInt(ageInput.value, 10) : null;
+        const reply = await fetchAIResponse(worry, expertKey, age);
+        responseContent.textContent = reply;
+      } catch (err) {
+        responseContent.innerHTML = `<span class="error-msg">${err.message}</span>`;
+      } finally {
+        setLoading(false);
+      }
     });
   </script>
 </body>
