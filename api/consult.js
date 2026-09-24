@@ -157,6 +157,8 @@ function readingText(result) {
     .filter((part) => part && part.text && !part.thought)
     .map((part) => part.text)
     .join('\n')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/^[ \t]*\*\s+/gm, '・')
     .trim();
 }
 
