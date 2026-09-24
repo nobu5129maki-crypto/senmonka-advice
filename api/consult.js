@@ -19,7 +19,7 @@ const OFF_BUTTON_EXPERTS = [
     name: '行政書士',
     keywords: ['許認可', '開業届', 'ビザ', '在留', '建設業', '古物商', '自動車業', '遺言執行', '抗議', '官公庁', '提出書類', '市役所手続'],
     systemPrompt: `あなたは行政書士として、許認可・届出・官庁手続きの観点から相談者を支援する説明をしてください。
-「具体的は行政書士や所管庁への確認を」という趣旨を含め、個別判定は避けてください。`
+「具体的には行政書士や所管庁への確認を」という趣旨を含め、個別判定は避けてください。`
   },
   {
     id: 'shiho',
@@ -85,9 +85,9 @@ function normalizeWorryText(worry) {
 
 function pickOffButtonExpert(worry) {
   const text = normalizeWorryText(worry);
-  if (!text) return OFF_BUTTON_EXPERTS[OFF_BUTTON_EXPERTS.length - 1];
+  if (!text) return null;
 
-  let best = OFF_BUTTON_EXPERTS[0];
+  let best = null;
   let bestScore = 0;
   for (const def of OFF_BUTTON_EXPERTS) {
     let score = 0;
@@ -100,10 +100,7 @@ function pickOffButtonExpert(worry) {
       best = def;
     }
   }
-  if (bestScore === 0) {
-    return OFF_BUTTON_EXPERTS[OFF_BUTTON_EXPERTS.length - 1];
-  }
-  return best;
+  return bestScore > 0 ? best : null;
 }
 
 const SYSTEM_PROMPTS = {
@@ -149,7 +146,19 @@ const REPLY_STRUCTURE = (expertLabel) => `【回答の構成（必須）】
 ■ セルフケア（心のモヤモヤの改善）
 ${expertLabel}の立場・専門性（または人生経験）から見て、相談者の「心のモヤモヤ」を和らげるのに役立つセルフケアを2〜4点。今日から試せる具体度で（休息、境界線、記録・整理、身体へのケア、考え方のコツ、小さな行動など、役割に沿った内容）。断定的な医学診断や治療指示はせず、つらさが強い・睡眠や仕事に支障がある場合は、公的相談窓口や医療・専門機関の受診を勧めてください。
 
-全体で500〜900字程度。箇条書き可。`;
+全体で500〜900字程度。箇条書きにするときは行頭を「・」にし、# や * は使わないでください。`;
+
+const MODEL = 'gemini-3.8-flash';
+const MAX_WORRY_LENGTH = 2000;
+
+function readingText(result) {
+  const parts = result?.candidates?.[0]?.content?.parts || [];
+  return parts
+    .filter((part) => part && part.text && !part.thought)
+    .map((part) => part.text)
+    .join('\n')
+    .trim();
+}
 
 const EXPERT_NAMES = {
   psych: '臨床心理士',
@@ -188,16 +197,20 @@ module.exports = async function handler(req, res) {
   }
 
   const { worry, expert, age } = req.body || {};
-  if (!worry || !expert || !SYSTEM_PROMPTS[expert]) {
+  const worryText = String(worry || '').trim();
+  if (!worryText || !expert || !SYSTEM_PROMPTS[expert]) {
     return res.status(400).json({ error: '悩みと相談したい人の指定が必要です。' });
   }
+  if (worryText.length > MAX_WORRY_LENGTH) {
+    return res.status(400).json({ error: `悩みは${MAX_WORRY_LENGTH}文字以内で入力してください。` });
+  }
 
-  const picked = pickOffButtonExpert(worry);
-  const systemPrompt = picked.systemPrompt;
-  const expertName = picked.name;
-
-  const ageInstruction = (age && age >= 1 && age <= 120)
-    ? `\n【重要】相談者は${age}歳です。年齢に合わせて、わかりやすく寄り添った言葉で回答してください。小学生以下なら易しい表現に、高齢者なら丁寧で落ち着いた表現に、若年層なら親しみやすい表現に調整してください。`
+  const picked = pickOffButtonExpert(worryText);
+  const systemPrompt = picked ? picked.systemPrompt : SYSTEM_PROMPTS[expert];
+  const expertName = picked ? picked.name : EXPERT_NAMES[expert];
+  const ageNumber = Number(age);
+  const ageInstruction = (Number.isInteger(ageNumber) && ageNumber >= 1 && ageNumber <= 120)
+    ? `\n【重要】相談者は${ageNumber}歳です。年齢に合わせて、わかりやすく寄り添った言葉で回答してください。小学生以下なら易しい表現に、高齢者なら丁寧で落ち着いた表現に、若年層なら親しみやすい表現に調整してください。`
     : '';
 
   const makeRequest = async () => {
@@ -206,9 +219,9 @@ module.exports = async function handler(req, res) {
 ${REPLY_STRUCTURE(expertName)}
 
 【相談内容】
-${worry}`;
+${worryText}`;
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -218,51 +231,53 @@ ${worry}`;
           generationConfig: {
             temperature: 0.7,
             maxOutputTokens: 2048,
-            thinkingConfig: { thinkingBudget: 0 }
+            thinkingConfig: { thinkingLevel: 'low' }
           }
         })
       }
     );
-    return response.json();
+    const data = await response.json().catch(() => ({}));
+    return { ok: response.ok, status: response.status, data };
   };
 
-  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
   try {
-    let data = await makeRequest();
+    const result = await makeRequest();
+    const data = result.data || {};
 
-    if (data.error) {
-      const msg = data.error.message || '';
-      const isQuotaError = /quota|rate.?limit|resource.?exhausted/i.test(msg) || data.error.code === 429;
-      const retryMatch = msg.match(/retry in (\d+(?:\.\d+)?)\s*s/i);
-
-      if (isQuotaError && retryMatch) {
-        const waitSec = Math.min(parseFloat(retryMatch[1]) + 1, 60);
-        await sleep(waitSec * 1000);
-        data = await makeRequest();
-      }
-
-      if (data.error) {
-        const quotaMsg = /quota|rate.?limit/i.test(data.error.message || '')
-          ? '利用回数の上限に達しました。しばらく（約3分）待ってから、もう一度お試しください。'
-          : (data.error.message || 'APIエラーが発生しました');
-        return res.status(500).json({ error: quotaMsg });
-      }
+    if (!result.ok || data.error) {
+      const msg = String(data.error?.message || '');
+      const isQuotaError = result.status === 429 || result.status === 503 || /quota|rate.?limit|resource.?exhausted/i.test(msg);
+      console.error('gemini_error', result.status, data.error?.status || '', msg.slice(0, 300));
+      return res.status(isQuotaError ? 429 : 502).json({
+        error: isQuotaError
+          ? 'いま相談が混み合っています。少し待ってから、もう一度お試しください。'
+          : '回答を作成できませんでした。もう一度お試しください。'
+      });
     }
 
-    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+    if (data.promptFeedback?.blockReason) {
+      return res.status(422).json({
+        error: 'この内容では回答を作成できませんでした。表現を変えて、もう一度お試しください。'
+      });
+    }
+
+    const reply = readingText(data);
     if (!reply) {
-      return res.status(500).json({
-        error: data.candidates?.[0]?.finishReason === 'SAFETY' ? '安全フィルターにより回答を生成できませんでした。' : 'APIから有効な回答を取得できませんでした。'
+      const blocked = data.candidates?.[0]?.finishReason === 'SAFETY';
+      return res.status(blocked ? 422 : 502).json({
+        error: blocked
+          ? '安全上の理由で回答を作成できませんでした。表現を変えて、もう一度お試しください。'
+          : '回答を作成できませんでした。もう一度お試しください。'
       });
     }
     return res.status(200).json({
       reply,
-      pickedExpert: { id: picked.id, name: picked.name }
+      pickedExpert: picked ? { id: picked.id, name: picked.name } : null
     });
   } catch (err) {
+    console.error('consult_error', err && err.message);
     return res.status(500).json({
-      error: err.message || 'サーバーエラーが発生しました'
+      error: 'サーバーでエラーが発生しました。もう一度お試しください。'
     });
   }
 }
