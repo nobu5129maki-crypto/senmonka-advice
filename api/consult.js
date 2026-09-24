@@ -148,7 +148,7 @@ ${expertLabel}の立場・専門性（または人生経験）から見て、相
 
 全体で500〜900字程度。箇条書きにするときは行頭を「・」にし、# や * は使わないでください。`;
 
-const MODEL = 'gemini-3.8-flash';
+const MODELS = ['gemini-3.8-flash', 'gemini-2.5-flash'];
 const MAX_WORRY_LENGTH = 2000;
 
 function readingText(result) {
@@ -213,7 +213,7 @@ module.exports = async function handler(req, res) {
     ? `\n【重要】相談者は${ageNumber}歳です。年齢に合わせて、わかりやすく寄り添った言葉で回答してください。小学生以下なら易しい表現に、高齢者なら丁寧で落ち着いた表現に、若年層なら親しみやすい表現に調整してください。`
     : '';
 
-  const makeRequest = async () => {
+  const makeRequest = async (model) => {
     const userMessage = `以下の悩みについて、${expertName}としてアドバイスをお願いします。${ageInstruction}
 
 ${REPLY_STRUCTURE(expertName)}
@@ -221,7 +221,7 @@ ${REPLY_STRUCTURE(expertName)}
 【相談内容】
 ${worryText}`;
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -231,7 +231,9 @@ ${worryText}`;
           generationConfig: {
             temperature: 0.7,
             maxOutputTokens: 2048,
-            thinkingConfig: { thinkingLevel: 'low' }
+            thinkingConfig: String(model).startsWith('gemini-3')
+              ? { thinkingLevel: 'low' }
+              : { thinkingBudget: 0 }
           }
         })
       }
@@ -241,13 +243,24 @@ ${worryText}`;
   };
 
   try {
-    const result = await makeRequest();
-    const data = result.data || {};
+    let result = null;
+    for (const model of MODELS) {
+      result = await makeRequest(model);
+      const msg = String(result.data?.error?.message || '');
+      const retryable = !result.ok && (
+        result.status === 429 ||
+        result.status === 503 ||
+        /quota|rate.?limit|resource.?exhausted|high demand|unavailable/i.test(msg)
+      );
+      if (result.ok && !result.data?.error) break;
+      console.error('gemini_error', model, result.status, result.data?.error?.status || '', msg.slice(0, 300));
+      if (!retryable) break;
+    }
+    const data = result?.data || {};
 
-    if (!result.ok || data.error) {
+    if (!result?.ok || data.error) {
       const msg = String(data.error?.message || '');
-      const isQuotaError = result.status === 429 || result.status === 503 || /quota|rate.?limit|resource.?exhausted/i.test(msg);
-      console.error('gemini_error', result.status, data.error?.status || '', msg.slice(0, 300));
+      const isQuotaError = result?.status === 429 || result?.status === 503 || /quota|rate.?limit|resource.?exhausted|high demand|unavailable/i.test(msg);
       return res.status(isQuotaError ? 429 : 502).json({
         error: isQuotaError
           ? 'いま相談が混み合っています。少し待ってから、もう一度お試しください。'
