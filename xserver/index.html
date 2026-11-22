@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>悩み相談アプリ</title>
+  <meta name="theme-color" content="#7c9a9e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="悩み相談">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="./icons/icon-512.png">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("./sw.js", { scope: "./" }).catch(function () {});
+    }
+  </script>
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>悩み相談</h1>
+      <p class="subtitle">いろいろな相談相手からアドバイスと、心のモヤモヤ向けセルフケアのヒントを受けましょう</p>
+    </header>
+
+    <section class="input-section">
+      <div class="age-row">
+        <label for="age-input">年齢（任意）</label>
+        <input
+          type="number"
+          id="age-input"
+          min="1"
+          max="120"
+          placeholder="例：30"
+          inputmode="numeric"
+        >
+      </div>
+      <label for="worry-input">あなたの悩みを入力してください</label>
+      <textarea
+        id="worry-input"
+        placeholder="例：人間関係で悩んでいます…&#10;仕事とプライベートのバランスが取れません…"
+      ></textarea>
+    </section>
+
+    <section class="expert-section">
+      <p class="expert-label">相談したい人を選んでください</p>
+      <div class="buttons">
+        <button class="expert-btn psych" data-expert="psych">臨床心理士</button>
+        <button class="expert-btn law" data-expert="law">弁護士</button>
+        <button class="expert-btn fp" data-expert="fp">ファイナンシャル<br>プランナー</button>
+        <button class="expert-btn career" data-expert="career">キャリア<br>カウンセラー</button>
+        <button class="expert-btn same-age" data-expert="same_age">同い年</button>
+        <button class="expert-btn younger" data-expert="younger">年下</button>
+        <button class="expert-btn teens" data-expert="teens">10代</button>
+        <button class="expert-btn twenties" data-expert="twenties">20代</button>
+        <button class="expert-btn thirties" data-expert="thirties">30代</button>
+        <button class="expert-btn forties" data-expert="forties">40代</button>
+        <button class="expert-btn fifties" data-expert="fifties">50代</button>
+        <button class="expert-btn dad" data-expert="dad">近所のお父さん</button>
+        <button class="expert-btn mom" data-expert="mom">近所のお母さん</button>
+      </div>
+    </section>
+
+    <section class="response-section" id="response-section">
+      <div class="response-header">
+        <div class="response-icon" id="response-icon"></div>
+        <div class="response-heading-text">
+          <span class="response-title" id="response-title"></span>
+          <p class="response-note" id="response-note" hidden></p>
+        </div>
+      </div>
+      <div class="response-content" id="response-content"></div>
+    </section>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
